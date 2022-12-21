@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "../include/calculator.hpp"
+#include "calculator.h"
 
 using namespace std;
 
@@ -36,9 +36,10 @@ int main(int argc, char * argv[]) {
     InputParser args(argc, argv);
     
     if(args.cmdOptionExists("-h")) {
-        cout << "usage: ./main.exe [-h] [-f FILENAME]";
+        cout << "usage: ./main.exe [-h] [-f FILENAME]" << endl;
         cout << "-h            help" << endl;
         cout << "-f FILENAME   directly read first 7 items from .md file" << endl;
+        return 0;
     }
 
     const string &filename = args.getCmdOption("-f");
