@@ -3,7 +3,7 @@ ODIR =./bin
 SDIR =./src
 CC=g++
 
-CFLAGS=-std=c++17 -I$(IDIR)
+CFLAGS=-std=c++17 -O3 -g -I$(IDIR)
 LIBS=-lm
 
 _DEPS = calculator.h
