@@ -1,7 +1,8 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
-#include <math.h> 
+#include <math.h>
 
 using namespace std;
 
