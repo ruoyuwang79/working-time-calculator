@@ -15,12 +15,13 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 $(ODIR)/%.o: $(SDIR)/%.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(ODIR)/main.exe: $(OBJ)
+main.exe: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
-all: $(ODIR)/main.exe
+all: main.exe
 
 .PHONY: clean
 
 clean:
 	rm -f $(ODIR)/*
+	rm -f *.exe
