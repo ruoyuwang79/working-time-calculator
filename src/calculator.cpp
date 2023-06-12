@@ -10,6 +10,8 @@ int calcuFromMd(string filename) {
 int calcuFromIn() {
     int hours, mins, totalMins;
     for (int i = 1; i < 8; i++) {
+        hours = 0;
+        mins = 0;
         cout << "day " << i << " hours (default 0): ";
         string input;
         getline(cin, input);
