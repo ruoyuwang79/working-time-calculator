@@ -9,6 +9,7 @@ int calcuFromMd(string filename) {
 
 int calcuFromIn() {
     int hours, mins, totalMins;
+    totalMins = 0;
     for (int i = 1; i < 8; i++) {
         hours = 0;
         mins = 0;
