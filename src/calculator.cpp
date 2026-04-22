@@ -115,6 +115,14 @@ bool findSundayInRange(const Date& start, const Date& end, long long& sundayKey)
     return false;
 }
 
+long long mostRecentSundayKey(long long key) {
+    int weekday = weekdayFromDayKey(key);
+    if (weekday < 0) {
+        return key;
+    }
+    return key - weekday;
+}
+
 string trim(const string& input) {
     const string ws = " \t\r\n";
     size_t begin = input.find_first_not_of(ws);
@@ -205,13 +213,12 @@ int calcuFromMd(string filename) {
     vector<DaySection> daySections;
     int weeklyHeading = -1;
     int weeklyEnd = static_cast<int>(lines.size());
-    int totalMins = 0;
     int weeklyTotalMins = 0;
     int dayCountForAverage = 7;
-    Date weekStart = {0, 0, 0};
-    Date weekEndDate = {0, 0, 0};
-    bool hasWeekRange = false;
+    long long closestDayKey = -1;
     vector<pair<long long, int>> explicitDayMinutes;
+    vector<pair<long long, int>> weekSections;
+    vector<pair<long long, int>> sundaySections;
 
     for (int i = 0; i < static_cast<int>(headings.size()); ++i) {
         int begin = headings[i];
@@ -223,18 +230,14 @@ int calcuFromMd(string filename) {
         string headingText = trim(raw.substr(2));
 
         if (headingText.find('~') != string::npos) {
-            weeklyHeading = begin;
-            weeklyEnd = end;
             size_t pos = headingText.find('~');
             string startText = trim(headingText.substr(0, pos));
             string endText = trim(headingText.substr(pos + 1));
             Date startDate, endDate;
             if (parseDate(startText, startDate) && parsePossiblyShortDate(endText, startDate, endDate)) {
-                int diff = dayDiffInclusive(startDate, endDate);
-                if (diff > 0) {
-                    weekStart = startDate;
-                    weekEndDate = endDate;
-                    hasWeekRange = true;
+                long long sundayKey = -1;
+                if (findSundayInRange(startDate, endDate, sundayKey)) {
+                    weekSections.push_back({sundayKey, begin});
                 }
             }
             continue;
@@ -246,8 +249,14 @@ int calcuFromMd(string filename) {
         }
 
         int dayMins = sumTimeRangesInSection(lines, begin + 1, end);
-        totalMins += dayMins;
-        explicitDayMinutes.push_back({dayKey(dayDate), dayMins});
+        long long currentDayKey = dayKey(dayDate);
+        if (closestDayKey < 0) {
+            closestDayKey = currentDayKey;
+        }
+        explicitDayMinutes.push_back({currentDayKey, dayMins});
+        if (weekdayFromDayKey(currentDayKey) == 0) {
+            sundaySections.push_back({currentDayKey, begin});
+        }
         daySections.push_back({begin, end, dayMins});
     }
 
@@ -257,21 +266,21 @@ int calcuFromMd(string filename) {
         replaceOrInsertSummary(lines, section.begin + 1, section.end, "小结：", summary);
     }
 
-    if (hasWeekRange) {
-        long long sundayKey = 0;
-        if (findSundayInRange(weekStart, weekEndDate, sundayKey)) {
-            long long mondayKey = sundayKey - 6;
-            weeklyTotalMins = 0;
-            for (const auto& dayInfo : explicitDayMinutes) {
-                if (dayInfo.first >= mondayKey && dayInfo.first <= sundayKey) {
-                    weeklyTotalMins += dayInfo.second;
-                }
+    long long targetSundayKey = -1;
+    if (!weekSections.empty()) {
+        targetSundayKey = weekSections.front().first;
+    } else if (closestDayKey >= 0) {
+        targetSundayKey = mostRecentSundayKey(closestDayKey);
+    }
+
+    if (targetSundayKey >= 0) {
+        long long mondayKey = targetSundayKey - 6;
+        weeklyTotalMins = 0;
+        for (const auto& dayInfo : explicitDayMinutes) {
+            if (dayInfo.first >= mondayKey && dayInfo.first <= targetSundayKey) {
+                weeklyTotalMins += dayInfo.second;
             }
-        } else {
-            weeklyTotalMins = totalMins;
         }
-    } else {
-        weeklyTotalMins = totalMins;
     }
 
     if (dayCountForAverage <= 0) {
@@ -281,7 +290,31 @@ int calcuFromMd(string filename) {
     int avgMins = static_cast<int>(round(static_cast<double>(weeklyTotalMins) / dayCountForAverage));
     string weekSummary = "- 周总结：<font color='green'>" + durationText(weeklyTotalMins) + "</font>，日平均：<font color='green'>" + durationText(avgMins) + "</font>";
 
+    if (targetSundayKey >= 0) {
+        for (const auto& section : weekSections) {
+            if (section.first == targetSundayKey) {
+                weeklyHeading = section.second;
+                break;
+            }
+        }
+    }
+
+    if (weeklyHeading < 0 && targetSundayKey >= 0) {
+        for (const auto& sunday : sundaySections) {
+            if (sunday.first == targetSundayKey) {
+                weeklyHeading = sunday.second;
+                break;
+            }
+        }
+    }
+
     if (weeklyHeading >= 0) {
+        for (int i = 0; i < static_cast<int>(headings.size()); ++i) {
+            if (headings[i] == weeklyHeading) {
+                weeklyEnd = (i + 1 < static_cast<int>(headings.size())) ? headings[i + 1] : static_cast<int>(lines.size());
+                break;
+            }
+        }
         replaceOrInsertSummary(lines, weeklyHeading + 1, weeklyEnd, "周总结：", weekSummary);
     }
 
