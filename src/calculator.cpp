@@ -89,6 +89,32 @@ long long dayKey(const Date& d) {
     time_t v = mktime(&t);
     return static_cast<long long>(v / (60 * 60 * 24));
 }
+
+int weekdayFromDayKey(long long key) {
+    time_t raw = static_cast<time_t>(key * 24 * 60 * 60 + 12 * 60 * 60);
+    tm* local = localtime(&raw);
+    if (local == nullptr) {
+        return -1;
+    }
+    return local->tm_wday;
+}
+
+bool findSundayInRange(const Date& start, const Date& end, long long& sundayKey) {
+    long long startKey = dayKey(start);
+    long long endKey = dayKey(end);
+    if (startKey > endKey) {
+        return false;
+    }
+
+    for (long long key = startKey; key <= endKey; ++key) {
+        if (weekdayFromDayKey(key) == 0) {
+            sundayKey = key;
+            return true;
+        }
+    }
+    return false;
+}
+
 string trim(const string& input) {
     const string ws = " \t\r\n";
     size_t begin = input.find_first_not_of(ws);
@@ -180,11 +206,12 @@ int calcuFromMd(string filename) {
     int weeklyHeading = -1;
     int weeklyEnd = static_cast<int>(lines.size());
     int totalMins = 0;
-    int dayCountForAverage = 0;
+    int weeklyTotalMins = 0;
+    int dayCountForAverage = 7;
     Date weekStart = {0, 0, 0};
     Date weekEndDate = {0, 0, 0};
     bool hasWeekRange = false;
-    vector<Date> explicitDays;
+    vector<pair<long long, int>> explicitDayMinutes;
 
     for (int i = 0; i < static_cast<int>(headings.size()); ++i) {
         int begin = headings[i];
@@ -205,7 +232,6 @@ int calcuFromMd(string filename) {
             if (parseDate(startText, startDate) && parsePossiblyShortDate(endText, startDate, endDate)) {
                 int diff = dayDiffInclusive(startDate, endDate);
                 if (diff > 0) {
-                    dayCountForAverage = diff;
                     weekStart = startDate;
                     weekEndDate = endDate;
                     hasWeekRange = true;
@@ -219,9 +245,9 @@ int calcuFromMd(string filename) {
             continue;
         }
 
-        explicitDays.push_back(dayDate);
         int dayMins = sumTimeRangesInSection(lines, begin + 1, end);
         totalMins += dayMins;
+        explicitDayMinutes.push_back({dayKey(dayDate), dayMins});
         daySections.push_back({begin, end, dayMins});
     }
 
@@ -232,23 +258,28 @@ int calcuFromMd(string filename) {
     }
 
     if (hasWeekRange) {
-        set<long long> days;
-        long long startKey = dayKey(weekStart);
-        long long endKey = dayKey(weekEndDate);
-        for (long long k = startKey; k <= endKey; ++k) {
-            days.insert(k);
+        long long sundayKey = 0;
+        if (findSundayInRange(weekStart, weekEndDate, sundayKey)) {
+            long long mondayKey = sundayKey - 6;
+            weeklyTotalMins = 0;
+            for (const auto& dayInfo : explicitDayMinutes) {
+                if (dayInfo.first >= mondayKey && dayInfo.first <= sundayKey) {
+                    weeklyTotalMins += dayInfo.second;
+                }
+            }
+        } else {
+            weeklyTotalMins = totalMins;
         }
-        for (const Date& d : explicitDays) {
-            days.insert(dayKey(d));
-        }
-        dayCountForAverage = static_cast<int>(days.size());
-    }
-    if (dayCountForAverage <= 0) {
-        dayCountForAverage = max(1, static_cast<int>(daySections.size()));
+    } else {
+        weeklyTotalMins = totalMins;
     }
 
-    int avgMins = static_cast<int>(round(static_cast<double>(totalMins) / dayCountForAverage));
-    string weekSummary = "- 周总结：<font color='green'>" + durationText(totalMins) + "</font>，日平均：<font color='green'>" + durationText(avgMins) + "</font>";
+    if (dayCountForAverage <= 0) {
+        dayCountForAverage = 7;
+    }
+
+    int avgMins = static_cast<int>(round(static_cast<double>(weeklyTotalMins) / dayCountForAverage));
+    string weekSummary = "- 周总结：<font color='green'>" + durationText(weeklyTotalMins) + "</font>，日平均：<font color='green'>" + durationText(avgMins) + "</font>";
 
     if (weeklyHeading >= 0) {
         replaceOrInsertSummary(lines, weeklyHeading + 1, weeklyEnd, "周总结：", weekSummary);
@@ -257,7 +288,7 @@ int calcuFromMd(string filename) {
     ofstream output(filename);
     if (!output.is_open()) {
         cerr << "Failed to write file: " << filename << endl;
-        return totalMins;
+        return weeklyTotalMins;
     }
     for (size_t i = 0; i < lines.size(); ++i) {
         output << lines[i];
@@ -266,7 +297,7 @@ int calcuFromMd(string filename) {
         }
     }
 
-    return totalMins;
+    return weeklyTotalMins;
 }
 
 int calcuFromIn() {
