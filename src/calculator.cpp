@@ -239,6 +239,11 @@ int calcuFromMd(string filename) {
                 if (findSundayInRange(startDate, endDate, sundayKey)) {
                     weekSections.push_back({sundayKey, begin});
                 }
+
+                int dayMins = sumTimeRangesInSection(lines, begin + 1, end);
+                long long currentDayKey = dayKey(endDate);
+                explicitDayMinutes.push_back({currentDayKey, dayMins});
+                daySections.push_back({begin, end, dayMins});
             }
             continue;
         }
@@ -360,6 +365,6 @@ int calcuFromIn() {
 void printResult(int timeInMin) {
     int dayAvgTime = round(double(timeInMin) / 7);
     cout << "|<=== Week Summary ===>|" << endl;
-    cout << "week total: " << timeInMin / 60 << "h" << timeInMin % 60 << "min" << endl;
-    cout << "day average: " << dayAvgTime / 60 << "h" << dayAvgTime % 60 << "min" << endl;
+    cout << "week total: " << durationText(timeInMin) << endl;
+    cout << "day average: " << durationText(dayAvgTime) << endl;
 }

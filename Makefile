@@ -15,8 +15,13 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 $(ODIR)/%.o: $(SDIR)/%.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
+main: $(OBJ)
+	$(CC) -o $@ $^  $(CFLAGS) $(LIBS)
+
 main.exe: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
+mac: main
 
 all: main.exe
 
